@@ -1,0 +1,21 @@
+name,description,expected_event,case_type,company_size,industry_fit,past_event_engagement,sponsorship_potential
+Anthropic,AI safety and research company,RAISE,clear_case,8,10,4,8
+Binance,Cryptocurrency exchange and blockchain ecosystem,Signal Week,clear_case,9,10,8,9
+Boston Dynamics,Robotics company developing advanced mobile robots,MACHINA,clear_case,7,10,3,7
+L'Oreal,Beauty and cosmetics company,Other,clear_case,10,2,2,4
+Tesla,Electric vehicle company developing autonomous driving and humanoid robots,MACHINA,multi_domain,10,9,5,9
+Stripe,Online payments infrastructure company,Other,borderline_fintech,9,4,5,7
+NVIDIA,"Semiconductor and accelerated computing company serving AI, gaming and robotics markets",RAISE,multi_domain,10,10,7,10
+UiPath,Enterprise software company focused on robotic process automation,Other,keyword_trap,8,5,4,6
+Coinbase,Cryptocurrency exchange and digital asset platform,Signal Week,clear_case,9,10,8,9
+Ledger,Company developing hardware wallets for cryptocurrencies and digital assets,Signal Week,clear_case,7,10,6,8
+Palantir,Software company providing data analytics and artificial intelligence platforms,RAISE,borderline_ai,9,8,6,9
+Hugging Face,"AI company providing machine learning models, datasets and developer tools",RAISE,clear_case,8,10,7,8
+Figure AI,Robotics company developing general-purpose humanoid robots powered by AI,MACHINA,multi_domain,7,10,5,8
+Waymo,Autonomous driving technology company developing self-driving vehicles,MACHINA,borderline_autonomy,9,10,6,9
+Salesforce,Enterprise CRM software company providing cloud-based sales and customer management tools,Other,borderline_ai,10,5,7,9
+PayPal,Digital payments and financial technology company,Other,borderline_fintech,10,4,7,8
+Snowflake,"Cloud data platform providing data warehousing, analytics and AI capabilities",Other,borderline_ai,9,6,6,8
+Scale AI,"AI infrastructure company providing data labeling, model evaluation and AI development platforms",RAISE,clear_case,8,10,7,9
+ABB Robotics,Industrial robotics and automation company developing robots for manufacturing,MACHINA,clear_case,9,10,6,9
+Chainlink,Blockchain infrastructure company providing decentralized oracle networks,Signal Week,clear_case,7,10,7,8

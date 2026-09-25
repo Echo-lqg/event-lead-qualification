@@ -1,0 +1,23 @@
+# Environment variables
+.env
+
+# Python cache
+__pycache__/
+*.pyc
+
+# SQLite database
+*.db
+
+# Generated outputs
+classification_errors.csv
+classified_companies.csv
+case_type_summary.csv
+event_summary.csv
+experiment_summary.csv
+fixed_by_v2.csv
+lead_qualification_results.csv
+priority_leads.csv
+priority_summary.csv
+prompt_evaluation.csv
+top_10_leads.csv
+top_leads_by_event.csv
