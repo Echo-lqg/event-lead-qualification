@@ -25,11 +25,42 @@ CREATE TABLE IF NOT EXISTS companies (
 
 #Insert CSV rows into the database
 
+for _, row in df.iterrows():
+    cursor.execute("""
+    INSERT OR IGNORE INTO companies ( 
+    name,
+    description,
+    expected_event,
+    case_type,
+    company_size,
+    industry_fit,
+    past_event_engagement,
+    sponsorship_potential
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        row["name"],
+        row["description"],
+        row["expected_event"],
+        row["case_type"],
+        row["company_size"],
+        row["industry_fit"],
+        row["past_event_engagement"],
+        row["sponsorship_potential"]
+    ))
+
 conn.commit()
+
+cursor.execute("""
+SELECT *
+FROM companies
+""")
+
+rows = cursor.fetchall()
+
+for row in rows:
+    print(row)
+
 conn.close()
 
 print("Database connected successfully")
-
-
-
-conn.close()
