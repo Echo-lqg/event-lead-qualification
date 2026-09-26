@@ -301,6 +301,29 @@ print("\n===== Companies =====")
 for row in company_rows:
     print(row)
 
-conn.close()
 print("\nDatabase setup completed successfully.")
+
+cursor.execute("""
+SELECT
+    c.name,
+    cl.predicted_event,
+    cl.relevance_score,
+    ls.lead_score,
+    ls.priority,
+    ls.recommended_action
+FROM companies AS c
+JOIN classifications AS cl
+    ON c.id = cl.company_id
+JOIN lead_scores AS ls
+    ON c.id = ls.company_id
+ORDER BY ls.lead_score DESC
+""")
+
+final_results = cursor.fetchall()
+
+print("\n===== Final Lead Qualification Results =====")
+
+for row in final_results:
+    print(row)
+conn.close()
 
