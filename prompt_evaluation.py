@@ -1,4 +1,7 @@
 import pandas as pd
+from openai import OpenAI
+
+client = OpenAI()
 
 classification_rules = """
 RAISE:
@@ -127,74 +130,54 @@ print(
     )
 )
 
-predictions_v1 = { 
-    "Anthropic": "RAISE",
-    "Binance": "Signal Week",
-    "Boston Dynamics": "MACHINA",
-    "L'Oreal": "Other",
-    "Tesla": "MACHINA",
-    "Stripe": "Other",
-    "NVIDIA": "RAISE",
-    "UiPath":"MACHINA",
-    "Coinbase": "Signal Week",
-    "Ledger": "Signal Week",
-    "Palantir": "RAISE",
-    "Hugging Face": "RAISE",
-    "Figure AI": "RAISE",
-    "Waymo": "MACHINA",
-    "Salesforce": "Other",
-    "PayPal": "Signal Week",
-    "Snowflake": "RAISE",
-    "Scale AI": "RAISE",
-    "ABB Robotics": "MACHINA",
-    "Chainlink": "Signal Week"
-}
+predictions_v1 = {}
+predictions_v2 = {}
+predictions_v3 = {}
 
-predictions_v2 = {
-    "Anthropic": "RAISE",
-    "Binance": "Signal Week",
-    "Boston Dynamics": "MACHINA",
-    "L'Oreal": "Other",
-    "Tesla": "MACHINA",
-    "Stripe": "Other",
-    "NVIDIA": "RAISE",
-    "UiPath":"Other",
-    "Coinbase": "Signal Week",
-    "Ledger": "Signal Week",
-    "Palantir": "RAISE",
-    "Hugging Face": "RAISE",
-    "Figure AI": "MACHINA",
-    "Waymo": "MACHINA",
-    "Salesforce": "Other",
-    "PayPal": "Other",
-    "Snowflake": "Other",
-    "Scale AI": "RAISE",
-    "ABB Robotics": "MACHINA",
-    "Chainlink": "Signal Week"
-}
+def run_prompt(prompt):
 
-predictions_v3 = {
-    "Anthropic": "RAISE",
-    "Binance": "Signal Week",
-    "Boston Dynamics": "MACHINA",
-    "L'Oreal": "Other",
-    "Tesla": "MACHINA",
-    "Stripe": "Other",
-    "NVIDIA": "RAISE",
-    "UiPath": "Other",
-    "Coinbase": "Signal Week",
-    "Ledger": "Signal Week",
-    "Palantir": "RAISE",
-    "Hugging Face": "RAISE",
-    "Figure AI": "MACHINA",
-    "Waymo": "MACHINA",
-    "Salesforce": "Other",
-    "PayPal": "Other",
-    "Snowflake": "Other",
-    "Scale AI": "RAISE",
-    "ABB Robotics": "MACHINA",
-    "Chainlink": "Signal Week"
-}
+    response = client.responses.create(
+        model="gpt-6-astra",
+        input=prompt
+    )
+
+    return response.output_text.strip()
+
+for _, row in df.iterrows():
+    company = row["name"]
+    description = row["description"]
+
+    prompt_v1 = build_prompt_v1(
+        company,
+        description
+    )
+
+    prompt_v2 = build_prompt_v2(
+        company,
+        description
+    )
+
+    prompt_v3 = build_prompt_v3(
+        company,
+        description
+    )
+
+    predictions_v1[company] = run_prompt(
+        prompt_v1
+    )
+
+    predictions_v2[company] = run_prompt(
+            prompt_v2
+    )
+
+    predictions_v3[company] = run_prompt(
+            prompt_v3
+    )
+
+    print(
+         f"✓ Evaluated {company}"
+    )
+
 
 
 evaluation = df.copy()
