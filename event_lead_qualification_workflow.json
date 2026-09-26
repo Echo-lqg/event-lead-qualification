@@ -1,0 +1,304 @@
+{
+  "name": "Event Lead Qualification Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-6-astra",
+          "mode": "list",
+          "cachedResultName": "GPT-6-ASTRA"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=You are an event classification assistant.\n\nClassify the company into exactly one event.\n\nRAISE:\nAI, generative AI, machine learning, AI infrastructure, AI startups\n\nSignal Week:\nBlockchain, crypto, Web3, digital assets, fintech related to blockchain\n\nMACHINA:\nRobotics, physical AI, autonomous machines, industrial AI, embodied AI\n\nOther:\nCompanies that do not clearly fit any of the categories above.\n\nDecision rules:\n\n1. Choose MACHINA when the company's primary product is physical robotics,\nautonomous machines, humanoid robots, industrial robots, or embodied AI.\n\n2. Do NOT choose MACHINA for software-only automation such as robotic process automation (RPA).\n\n3. Choose Signal Week only when blockchain, crypto, Web3, or digital assets\nare central to the company's business.\n\n4. Do NOT choose Signal Week for general fintech or payment companies\nunless blockchain or crypto is explicitly central.\n\n5. Choose RAISE when AI, machine learning, generative AI, or AI infrastructure\nis central to the company's primary business.\n\n6. If AI is only an additional feature of a broader software or cloud product,\ndo not automatically choose RAISE.\n\n7. If a company fits both AI and robotics, prioritize MACHINA when its primary\nproduct is a physical autonomous or robotic system.\n\n8. If none of the categories clearly fits the company's primary business,\nchoose Other.\n\nCompany:\n{{ $json.name }}\n\nDescription:\n{{ $json.description }}\n\nReturn JSON only with exactly these fields:\n\n{\n  \"event\": \"RAISE | Signal Week | MACHINA | Other\",\n  \"relevance_score\": 1-10,\n  \"reason\": \"short explanation\"\n}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        528,
+        0
+      ],
+      "id": "e508280e-e61b-4f1f-b00c-7f73f38190e9",
+      "name": "Message a model",
+      "credentials": {
+        "openAiApi": {
+          "id": "uqEihjFibzUo4JKi",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rawText = $json.output[0].content[0].text;\n\nconst classification = JSON.parse(rawText);\n\nconst input = $('Edit Fields').first().json;\n\nreturn [{\n  json: {\n    ...input,\n    event: classification.event,\n    relevance_score: classification.relevance_score,\n    reason: classification.reason\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        816,
+        0
+      ],
+      "id": "71e246ee-6d3c-407d-b9d3-b416b14b3b17",
+      "name": "Parse Classification"
+    },
+    {
+      "parameters": {
+        "jsCode": "const relevance_score = $json.relevance_score;\nconst industry_fit = $json.industry_fit;\nconst sponsorship_potential = $json.sponsorship_potential;\nconst company_size = $json.company_size;\nconst past_event_engagement = $json.past_event_engagement;\nconst case_confidence = $json.case_confidence;\n\nconst lead_score = (\n  relevance_score * 0.30 +\n  industry_fit * 0.25 +\n  sponsorship_potential * 0.20 +\n  company_size * 0.10 +\n  past_event_engagement * 0.10 +\n  case_confidence * 0.05\n) * 10;\n\nlet priority;\nlet recommended_action;\n\nif (lead_score >= 85) {\n  priority = \"High\";\n  recommended_action = \"Contact sales / partnership team\";\n} else if (lead_score >= 65) {\n  priority = \"Medium\";\n  recommended_action = \"Add to nurture campaign\";\n} else {\n  priority = \"Low\";\n  recommended_action = \"Low priority / monitor\";\n}\n\nreturn [{\n  json: {\n    ...$json,\n    lead_score: Math.round(lead_score * 10) / 10,\n    priority: priority,\n    recommended_action: recommended_action\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        0
+      ],
+      "id": "b8ae6d78-8a7d-440e-be19-d1bca8d6b771",
+      "name": "Calculate Lead Score"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "ec0255a0-2eb3-437e-9fd3-966916fb629e",
+              "leftValue": "={{ $json.priority }}",
+              "rightValue": "High",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1264,
+        0
+      ],
+      "id": "cde9ff64-94ce-450c-9598-14b5c65f32b9",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "guildId": {
+          "__rl": true,
+          "value": "1553518862014873710",
+          "mode": "id"
+        },
+        "channelId": {
+          "__rl": true,
+          "value": "=1553518862522253368",
+          "mode": "id"
+        },
+        "content": "=High-priority lead detected\n\nCompany: {{ $json.name }}\nEvent: {{ $json.event }}\nLead Score: {{ $json.lead_score }}\nAction: {{ $json.recommended_action }}\n\nRelevance Score: {{ $json.relevance_score }}\n\nReason:\n{{ $json.reason }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [
+        1488,
+        -96
+      ],
+      "id": "02585a41-79b8-4e55-9b71-f0bb871a0add",
+      "name": "Send a message",
+      "webhookId": "f1db6dda-5629-461d-bc4d-209393ba083b",
+      "credentials": {
+        "discordBotApi": {
+          "id": "RKPn4dqTZvrwYEVc",
+          "name": "Discord Bot account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "event-lead",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        160,
+        0
+      ],
+      "id": "28c15cbe-62a4-49cc-b50c-953df0156ec3",
+      "name": "Webhook",
+      "webhookId": "aced3bfe-f882-46a8-9bcb-1a3a04a3df72"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3e61ebc2-eaca-4f1f-9910-47a456837762",
+              "name": "name",
+              "value": "={{ $json.body.name }}",
+              "type": "string"
+            },
+            {
+              "id": "62428b28-322a-400d-af0e-403b178e6e06",
+              "name": "description",
+              "value": "={{ $json.body.description }}",
+              "type": "string"
+            },
+            {
+              "id": "94da7276-0ddc-4b2d-a0c6-1f0b39828260",
+              "name": "industry_fit",
+              "value": "={{ $json.body.industry_fit }}",
+              "type": "string"
+            },
+            {
+              "id": "b91d7a34-801d-4146-8173-6ea81828d3fc",
+              "name": "sponsorship_potential",
+              "value": "={{ $json.body.sponsorship_potential }}",
+              "type": "string"
+            },
+            {
+              "id": "a034a43b-7914-4b89-8f02-8f2c7efd1b49",
+              "name": "company_size",
+              "value": "={{ $json.body.company_size }}",
+              "type": "string"
+            },
+            {
+              "id": "918304d2-2419-43cc-aa53-07b95347fcc9",
+              "name": "past_event_engagement",
+              "value": "={{ $json.body.past_event_engagement }}",
+              "type": "string"
+            },
+            {
+              "id": "59e29e8f-c25b-4c8d-928c-b845ca10811f",
+              "name": "case_confidence",
+              "value": "={{ $json.body.case_confidence }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        384,
+        0
+      ],
+      "id": "ad6ce52b-e1f9-4708-93d3-ec3e99dbe502",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1488,
+        96
+      ],
+      "id": "e4ddcfc4-ddd7-40e6-b356-15fca5b7fe0b",
+      "name": "No Operation, do nothing"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Parse Classification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Classification": {
+      "main": [
+        [
+          {
+            "node": "Calculate Lead Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Lead Score": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Operation, do nothing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "8965e97b-9e0b-40e4-adab-9813e046e2d7",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "b23558530e24b8f389846aecea08c2804d7f30d09129507ba7b3e1863c783d73"
+  },
+  "nodeGroups": [],
+  "id": "9KfBBw1wdhElCnhW",
+  "tags": []
+}
