@@ -1,17 +1,33 @@
+# =========================================================
+# 1. Imports and configuration
+# =========================================================
+
 from openai_classifier import classify_company
 
 import sqlite3
 import pandas as pd
 
+RUN_CLASSIFICATION = False
+
+# =========================================================
+# 2. Load source company data
+# =========================================================
+
 df = pd.read_csv("companies.csv")
 
+# =========================================================
+# 3. Connect to SQLite database
+# =========================================================
+
 conn = sqlite3.connect("event_leads.db")
-#conn你和数据库之间的“连接”
 
 cursor = conn.cursor()
-#cursor= 通过这个连接，真正去执行 SQL 命令的“操作员”
 
-# Create companies table
+# =========================================================
+# 4. Create database tables
+# =========================================================
+
+# Companies table
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS companies (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -26,7 +42,32 @@ CREATE TABLE IF NOT EXISTS companies (
 )
 """)
 
-#Insert CSV rows into the database
+# AI classification results
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS classifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_id INTEGER NOT NULL,
+    predicted_event TEXT NOT NULL,
+    relevance_score INTEGER NOT NULL,
+    reason TEXT,
+    correct INTEGER,
+    FOREIGN KEY (company_id)
+        REFERENCES companies(id)
+)
+""")
+
+# Lead qualification results
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS lead_scores (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_id INTEGER NOT NULL,
+    lead_score REAL NOT NULL,
+    priority TEXT NOT NULL,
+    recommended_action TEXT,
+    FOREIGN KEY (company_id)
+        REFERENCES companies(id)    
+)
+""")
 
 for _, row in df.iterrows():
     cursor.execute("""
@@ -52,37 +93,11 @@ for _, row in df.iterrows():
         row["sponsorship_potential"]
     ))
 
-# Check company data
-cursor.execute("""
-SELECT *
-FROM companies
-""")
+conn.commit()
 
-company_rows = cursor.fetchall()
-
-print("\n===== Companies =====")
-
-for row in company_rows:
-    print(row)
-
-print("\nDatabase setup completed successfully.")
-
-
-# Create classifications table
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS classifications (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    company_id INTEGER NOT NULL,
-    predicted_event TEXT NOT NULL,
-    relevance_score INTEGER NOT NULL,
-    reason TEXT,
-    correct INTEGER,
-    FOREIGN KEY (company_id)
-        REFERENCES companies(id)
-)
-""")
-
-RUN_CLASSIFICATION = False
+# =========================================================
+# 6. Run OpenAI classification (optional)
+# =========================================================
 
 if RUN_CLASSIFICATION:
 
@@ -148,8 +163,23 @@ if RUN_CLASSIFICATION:
     #Save database changes
     conn.commit()
 
+# =========================================================
+# 7. Evaluate classification results
+# =========================================================
 
-# Check classification data
+cursor.execute("""
+SELECT *
+FROM companies
+""")
+
+company_rows = cursor.fetchall()
+
+print("\n===== Companies =====")
+
+for row in company_rows:
+    print(row)
+
+#Print stored classifications
 cursor.execute("""
 SELECT *
 FROM classifications
@@ -162,6 +192,7 @@ print("\n===== Classifications =====")
 for row in classification_rows:
     print(row)
 
+#Compare predicted vs expected
 cursor.execute("""
 SELECT
     c.name,
@@ -181,6 +212,7 @@ print("\n===== Joined Classification Results =====")
 for row in joined_rows :
      print(row)
 
+#Calculate accuracy
 cursor.execute("""
 SELECT
     AVG(correct)
@@ -196,16 +228,22 @@ if accuracy is not None:
 else:
     print("\nNo classification data available.")
 
+
+# =========================================================
+# 8. Calculate lead qualification scores
+# =========================================================
+
+case_confidence_map = {
+    "clear_case": 10,
+    "multi_domain": 7,
+    "borderline_fintech": 6,
+    "borderline_ai": 6,
+    "borderline_autonomy": 7,
+    "keyword_trap": 5
+}
+
 cursor.execute("""
-CREATE TABLE IF NOT EXISTS lead_scores (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    company_id INTEGER NOT NULL,
-    lead_score REAL NOT NULL,
-    priority TEXT NOT NULL,
-    recommended_action TEXT,
-    FOREIGN KEY (company_id)
-        REFERENCES companies(id)    
-)
+DELETE FROM lead_scores
 """)
 
 cursor.execute("""
@@ -224,19 +262,6 @@ JOIN classifications AS cl
 """)
 
 lead_data = cursor.fetchall()
-
-case_confidence_map = {
-    "clear_case": 10,
-    "multi_domain": 7,
-    "borderline_fintech": 6,
-    "borderline_ai": 6,
-    "borderline_autonomy": 7,
-    "keyword_trap": 5
-}
-
-cursor.execute("""
-DELETE FROM lead_scores
-""")
 
 for (
     company_id,
@@ -304,7 +329,9 @@ print("\n===== Lead Scores =====")
 for row in lead_score_rows:
     print(row)
 
-
+# =========================================================
+# 9. Build final lead qualification results
+# =========================================================
 
 cursor.execute("""
 SELECT
@@ -329,8 +356,11 @@ print("\n===== Final Lead Qualification Results =====")
 for row in final_results:
     print(row)
 
+# =========================================================
+# 10. Business analytics
+# =========================================================
 
-#Create High priority leads table
+#High priority leads
 cursor.execute("""
 SELECT
     c.name,
@@ -354,6 +384,7 @@ print("\n===== High Priority Leads =====")
 for row in high_priority_leads:
     print(row)
 
+# Lead summary by event
 cursor.execute("""
 SELECT
     cl.predicted_event,
@@ -373,7 +404,7 @@ print("\n===== Event Summary =====")
 for row in event_summary:
     print(row)
 
-
+# Lead priority distribution
 cursor.execute("""
 SELECT
     priority,
@@ -389,6 +420,10 @@ print("\n===== Priority Summary =====")
 
 for row in priority_summary:
     print(row)
-    
-conn.close()
 
+# =========================================================
+# 11. Close database connection
+# =========================================================
+
+conn.close()
+print("\nDatabase pipeline completed successfully.")
