@@ -9,6 +9,7 @@ conn = sqlite3.connect("event_leads.db")
 cursor = conn.cursor()
 #cursor= 通过这个连接，真正去执行 SQL 命令的“操作员”
 
+# Create companies table
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS companies (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -49,18 +50,50 @@ for _, row in df.iterrows():
         row["sponsorship_potential"]
     ))
 
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS classifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_id INTEGER NOT NULL,
+    predicted_event TEXT NOT NULL,
+    relevance_score INTEGER NOT NULL,
+    reason TEXT,
+    correct INTEGER,
+    FOREIGN KEY (company_id)
+        REFERENCES companies(id)
+)
+""")
+
+# Save database changes
 conn.commit()
 
+
+# Check classification data
+cursor.execute("""
+SELECT *
+FROM classifications
+""")
+
+classification_rows = cursor.fetchall()
+
+print("\n===== Classifications =====")
+
+for row in classification_rows:
+    print(row)
+
+
+# Check company data
 cursor.execute("""
 SELECT *
 FROM companies
 """)
 
-rows = cursor.fetchall()
+company_rows = cursor.fetchall()
 
-for row in rows:
+print("\n===== Companies =====")
+
+for row in company_rows:
     print(row)
 
-conn.close()
 
-print("Database connected successfully")
+print("\nDatabase setup completed successfully.")
