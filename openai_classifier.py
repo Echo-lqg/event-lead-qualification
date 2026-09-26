@@ -8,7 +8,7 @@ client = OpenAI()
 class ClassificationResult(BaseModel):
     event: Literal[ #表示 event 只能是这四个值之一。
         "RAISE",
-        "Siganl Week",
+        "Signal Week",
         "MACHINA",
         "Other"
     ]
@@ -58,3 +58,17 @@ Rules:
 - reason must be short and clear.
 """
 
+def classify_company(company, description):
+    prompt = build_prompt(
+        company,
+        description
+    )
+
+    response = client.responses.parse(
+        model="gpt-6-astra",
+        input=prompt,
+        text_format=ClassificationResult
+    )
+
+    result = response.output_parsed
+    return result

@@ -1,3 +1,5 @@
+from openai_classifier import classify_company
+
 import sqlite3
 import pandas as pd
 
@@ -50,7 +52,7 @@ for _, row in df.iterrows():
         row["sponsorship_potential"]
     ))
 
-
+# Create classifications table
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS classifications (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -63,6 +65,65 @@ CREATE TABLE IF NOT EXISTS classifications (
         REFERENCES companies(id)
 )
 """)
+
+# Clear previous classification results
+cursor.execute("""
+DELETE FROM classifications
+""")
+
+cursor.execute("""
+SELECT
+    id,
+    name,
+    description,
+    expected_event
+FROM companies
+""")
+
+companies = cursor.fetchall()
+
+for company_id, name, description, expected_event in companies:
+
+    try:
+        result = classify_company(
+            name,
+            description
+        )
+
+        predicted_event = result.event
+        relevance_score = result.relevance_score
+        reason = result.reason
+
+        correct = int(
+            predicted_event == expected_event
+        )
+
+        cursor.execute("""
+        INSERT INTO classifications (
+            company_id,
+            predicted_event,
+            relevance_score,
+            reason,
+            correct
+        )
+        VALUES (?, ?, ?, ?, ?)
+        """, (
+            company_id,
+            predicted_event,
+            relevance_score,
+            reason,
+            correct
+        ))
+
+        print(
+            f"✓ {name} ->"
+            f"{predicted_event} "
+            f"({relevance_score}/10)"
+        )
+    except Exception as error:
+            print(
+                f"✗ Failed to classify {name}: {error}"
+            )
 
 # Save database changes
 conn.commit()
@@ -95,5 +156,6 @@ print("\n===== Companies =====")
 for row in company_rows:
     print(row)
 
-
+conn.close()
 print("\nDatabase setup completed successfully.")
+
