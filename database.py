@@ -52,6 +52,22 @@ for _, row in df.iterrows():
         row["sponsorship_potential"]
     ))
 
+# Check company data
+cursor.execute("""
+SELECT *
+FROM companies
+""")
+
+company_rows = cursor.fetchall()
+
+print("\n===== Companies =====")
+
+for row in company_rows:
+    print(row)
+
+print("\nDatabase setup completed successfully.")
+
+
 # Create classifications table
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS classifications (
@@ -69,6 +85,7 @@ CREATE TABLE IF NOT EXISTS classifications (
 RUN_CLASSIFICATION = False
 
 if RUN_CLASSIFICATION:
+
     #Clear previous classification results
     cursor.execute("""
     DELETE FROM classifications
@@ -221,7 +238,6 @@ cursor.execute("""
 DELETE FROM lead_scores
 """)
 
-
 for (
     company_id,
     name,
@@ -288,20 +304,7 @@ print("\n===== Lead Scores =====")
 for row in lead_score_rows:
     print(row)
 
-# Check company data
-cursor.execute("""
-SELECT *
-FROM companies
-""")
 
-company_rows = cursor.fetchall()
-
-print("\n===== Companies =====")
-
-for row in company_rows:
-    print(row)
-
-print("\nDatabase setup completed successfully.")
 
 cursor.execute("""
 SELECT
@@ -325,5 +328,67 @@ print("\n===== Final Lead Qualification Results =====")
 
 for row in final_results:
     print(row)
+
+
+#Create High priority leads table
+cursor.execute("""
+SELECT
+    c.name,
+    cl.predicted_event,
+    ls.lead_score,
+    ls.priority,
+    ls.recommended_action
+FROM companies AS c
+JOIN classifications AS cl
+    ON c.id = cl.company_id
+JOIN lead_scores AS ls
+    ON c.id = ls.company_id
+WHERE ls.priority = 'High'
+ORDER BY ls.lead_score DESC
+""")
+
+high_priority_leads = cursor.fetchall()
+
+print("\n===== High Priority Leads =====")
+
+for row in high_priority_leads:
+    print(row)
+
+cursor.execute("""
+SELECT
+    cl.predicted_event,
+    COUNT(*) AS company_count,
+    ROUND(AVG(ls.lead_score),1) AS average_lead_score
+FROM classifications AS cl
+JOIN lead_scores AS ls
+    on cl.company_id = ls.company_id
+GROUP BY cl.predicted_event
+ORDER BY average_lead_score DESC
+""")
+
+event_summary = cursor.fetchall()
+
+print("\n===== Event Summary =====")
+
+for row in event_summary:
+    print(row)
+
+
+cursor.execute("""
+SELECT
+    priority,
+    COUNT(*) AS lead_count
+FROM lead_scores
+GROUP BY priority
+ORDER BY lead_count DESC
+""")
+
+priority_summary = cursor.fetchall()
+
+print("\n===== Priority Summary =====")
+
+for row in priority_summary:
+    print(row)
+    
 conn.close()
 
