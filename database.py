@@ -67,9 +67,9 @@ CREATE TABLE IF NOT EXISTS classifications (
 """)
 
 # Clear previous classification results
-cursor.execute("""
-DELETE FROM classifications
-""")
+# cursor.execute("""
+# DELETE FROM classifications
+# """)
 
 cursor.execute("""
 SELECT
@@ -82,48 +82,48 @@ FROM companies
 
 companies = cursor.fetchall()
 
-for company_id, name, description, expected_event in companies:
+# for company_id, name, description, expected_event in companies:
 
-    try:
-        result = classify_company(
-            name,
-            description
-        )
+#     try:
+#         result = classify_company(
+#             name,
+#             description
+#         )
 
-        predicted_event = result.event
-        relevance_score = result.relevance_score
-        reason = result.reason
+#         predicted_event = result.event
+#         relevance_score = result.relevance_score
+#         reason = result.reason
 
-        correct = int(
-            predicted_event == expected_event
-        )
+#         correct = int(
+#             predicted_event == expected_event
+#         )
 
-        cursor.execute("""
-        INSERT INTO classifications (
-            company_id,
-            predicted_event,
-            relevance_score,
-            reason,
-            correct
-        )
-        VALUES (?, ?, ?, ?, ?)
-        """, (
-            company_id,
-            predicted_event,
-            relevance_score,
-            reason,
-            correct
-        ))
+#         cursor.execute("""
+#         INSERT INTO classifications (
+#             company_id,
+#             predicted_event,
+#             relevance_score,
+#             reason,
+#             correct
+#         )
+#         VALUES (?, ?, ?, ?, ?)
+#         """, (
+#             company_id,
+#             predicted_event,
+#             relevance_score,
+#             reason,
+#             correct
+#         ))
 
-        print(
-            f"✓ {name} ->"
-            f"{predicted_event} "
-            f"({relevance_score}/10)"
-        )
-    except Exception as error:
-            print(
-                f"✗ Failed to classify {name}: {error}"
-            )
+#         print(
+#             f"✓ {name} ->"
+#             f"{predicted_event} "
+#             f"({relevance_score}/10)"
+#         )
+#     except Exception as error:
+#             print(
+#                 f"✗ Failed to classify {name}: {error}"
+#             )
 
 # Save database changes
 conn.commit()
@@ -142,6 +142,39 @@ print("\n===== Classifications =====")
 for row in classification_rows:
     print(row)
 
+cursor.execute("""
+SELECT
+    c.name,
+    c.expected_event,
+    cl.predicted_event,
+    cl.relevance_score,
+    cl.correct
+FROM companies AS c
+JOIN classifications AS cl
+    on c.id = cl.company_id
+""")
+
+joined_rows = cursor.fetchall()
+
+print("\n===== Joined Classification Results =====")
+
+for row in joined_rows :
+     print(row)
+
+cursor.execute("""
+SELECT
+    AVG(correct)
+FROM classifications
+""")
+
+accuracy = cursor.fetchone()[0]
+if accuracy is not None:
+    print(
+        f"\nClassification accuracy: "
+        f"{accuracy:.2%}"
+    )
+else:
+    print("\nNo classification data available.")
 
 # Check company data
 cursor.execute("""
