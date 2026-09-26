@@ -61,7 +61,8 @@ The project separates experimentation, production-style classification, database
 
 ```text
 event-lead-qualification/
-│
+├── n8n/
+│   └── event_lead_qualification_workflow.json
 ├── companies.csv
 ├── openai_classifier.py
 ├── prompt_evaluation.py
@@ -453,3 +454,18 @@ This project demonstrates how AI can support event lead qualification by combini
 - business prioritization
 
 It is a useful prototype for understanding how LLMs can be applied in a sales and partnership workflow for event planning and acquisition.
+
+---
+
+## n8n Automation
+
+The project includes an n8n workflow for automated lead processing.
+
+```text
+Webhook
+→ Normalize Input
+→ OpenAI Classification
+→ Parse Classification
+→ Calculate Lead Score
+→ IF Priority == High
+→ Discord Alert
