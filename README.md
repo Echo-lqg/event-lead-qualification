@@ -267,6 +267,17 @@ Lead Score =
 
 The weighted result is converted to a 0–100 score.
 
+## Example Output
+
+Example qualified leads:
+
+| Company | Event | Relevance Score | Lead Score | Priority | Recommended Action |
+|---|---|---:|---:|---|---|
+| NVIDIA | RAISE | 10 | 95.5 | High | Contact sales / partnership team |
+| Binance | Signal Week | 10 | 95.0 | High | Contact sales / partnership team |
+| Scale AI | RAISE | 10 | 93.0 | High | Contact sales / partnership team |
+| ABB Robotics | MACHINA | 10 | 93.0 | High | Contact sales / partnership team |
+
 ### Priority Rules
 
 ```text
