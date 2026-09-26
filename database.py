@@ -66,67 +66,70 @@ CREATE TABLE IF NOT EXISTS classifications (
 )
 """)
 
-# Clear previous classification results
-# cursor.execute("""
-# DELETE FROM classifications
-# """)
+RUN_CLASSIFICATION = False
 
-cursor.execute("""
-SELECT
-    id,
-    name,
-    description,
-    expected_event
-FROM companies
-""")
+if RUN_CLASSIFICATION:
+    #Clear previous classification results
+    cursor.execute("""
+    DELETE FROM classifications
+    """)
 
-companies = cursor.fetchall()
+    cursor.execute("""
+    SELECT
+        id,
+        name,
+        description,
+        expected_event
+    FROM companies
+    """)
 
-# for company_id, name, description, expected_event in companies:
+    companies = cursor.fetchall()
 
-#     try:
-#         result = classify_company(
-#             name,
-#             description
-#         )
+    for company_id, name, description, expected_event in companies:
 
-#         predicted_event = result.event
-#         relevance_score = result.relevance_score
-#         reason = result.reason
+        try:
+            result = classify_company(
+                name,
+                description
+            )
 
-#         correct = int(
-#             predicted_event == expected_event
-#         )
+            predicted_event = result.event
+            relevance_score = result.relevance_score
+            reason = result.reason
 
-#         cursor.execute("""
-#         INSERT INTO classifications (
-#             company_id,
-#             predicted_event,
-#             relevance_score,
-#             reason,
-#             correct
-#         )
-#         VALUES (?, ?, ?, ?, ?)
-#         """, (
-#             company_id,
-#             predicted_event,
-#             relevance_score,
-#             reason,
-#             correct
-#         ))
+            correct = int(
+                predicted_event == expected_event
+            )
 
-#         print(
-#             f"✓ {name} ->"
-#             f"{predicted_event} "
-#             f"({relevance_score}/10)"
-#         )
-#     except Exception as error:
-#             print(
-#                 f"✗ Failed to classify {name}: {error}"
-#             )
+            cursor.execute("""
+            INSERT INTO classifications (
+                company_id,
+                predicted_event,
+                relevance_score,
+                reason,
+                correct
+            )
+            VALUES (?, ?, ?, ?, ?)
+            """, (
+                company_id,
+                predicted_event,
+                relevance_score,
+                reason,
+                correct
+            ))
 
-# Save database changes
-conn.commit()
+            print(
+                f"✓ {name} ->"
+                f"{predicted_event} "
+                f"({relevance_score}/10)"
+            )
+        except Exception as error:
+                print(
+                    f"✗ Failed to classify {name}: {error}"
+                )
+
+    #Save database changes
+    conn.commit()
 
 
 # Check classification data
@@ -175,6 +178,115 @@ if accuracy is not None:
     )
 else:
     print("\nNo classification data available.")
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS lead_scores (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_id INTEGER NOT NULL,
+    lead_score REAL NOT NULL,
+    priority TEXT NOT NULL,
+    recommended_action TEXT,
+    FOREIGN KEY (company_id)
+        REFERENCES companies(id)    
+)
+""")
+
+cursor.execute("""
+SELECT
+    c.id,
+    c.name,
+    c.case_type,
+    c.company_size,
+    c.industry_fit,
+    c.past_event_engagement,
+    c.sponsorship_potential,
+    cl.relevance_score
+FROM companies AS c
+JOIN classifications AS cl
+    ON c.id = cl.company_id
+""")
+
+lead_data = cursor.fetchall()
+
+case_confidence_map = {
+    "clear_case": 10,
+    "multi_domain": 7,
+    "borderline_fintech": 6,
+    "borderline_ai": 6,
+    "borderline_autonomy": 7,
+    "keyword_trap": 5
+}
+
+cursor.execute("""
+DELETE FROM lead_scores
+""")
+
+
+for (
+    company_id,
+    name,
+    case_type,
+    company_size,
+    industry_fit,
+    past_event_engagement,
+    sponsorship_potential,
+    relevance_score
+) in lead_data:
+
+    case_confidence = case_confidence_map[case_type]
+
+    lead_score = (
+        relevance_score * 0.30
+        + industry_fit * 0.25
+        + sponsorship_potential * 0.20
+        + company_size * 0.10
+        + past_event_engagement * 0.10
+        + case_confidence * 0.05
+    ) * 10
+
+    lead_score = round(lead_score, 1)
+
+    if lead_score >= 85:
+        priority = "High"
+    elif lead_score >= 65:
+        priority = "Medium"
+    else:
+        priority = "Low"
+
+    if priority == "High":
+        recommended_action = "Contact sales / partnership team"
+    elif priority == "Medium":
+        recommended_action = "Add to nurture campaign"
+    else:
+        recommended_action = "Low priority / monitor"
+
+    cursor.execute("""
+    INSERT INTO lead_scores (
+        company_id,
+        lead_score,
+        priority,
+        recommended_action
+    )
+    VALUES (?, ?, ?, ?)
+    """, (
+            company_id,
+            lead_score,
+            priority,
+            recommended_action
+    ))
+
+    conn.commit()
+
+cursor.execute("""
+SELECT *
+FROM lead_scores
+""")
+
+lead_score_rows = cursor.fetchall()
+print("\n===== Lead Scores =====")
+
+for row in lead_score_rows:
+    print(row)
 
 # Check company data
 cursor.execute("""
