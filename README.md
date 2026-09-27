@@ -11,6 +11,7 @@ The project combines:
 - pandas
 - SQLite / SQL
 - Lead Scoring and Business Analytics
+- n8n Workflow Automation
 
 ---
 
@@ -61,6 +62,8 @@ The project separates experimentation, production-style classification, database
 
 ```text
 event-lead-qualification/
+├── docs/
+│   └── n8n_workflow.png
 ├── n8n/
 │   └── event_lead_qualification_workflow.json
 ├── companies.csv
@@ -70,8 +73,23 @@ event-lead-qualification/
 ├── lead_qualification.py
 ├── requirements.txt
 ├── .gitignore
-├── README.md
-└── output files / generated CSVs
+└── README.md
+
+Generated after running the scripts (gitignored, not committed):
+
+event_leads.db                          ← database.py
+lead_qualification_results.csv          ← lead_qualification.py
+top_10_leads.csv
+top_leads_by_event.csv
+priority_leads.csv
+event_summary.csv
+priority_summary.csv
+classification_errors.csv
+lead_qualification_case_summary.csv
+prompt_evaluation.csv                   ← prompt_evaluation.py
+prompt_evaluation_case_summary.csv
+fixed_by_v2.csv
+experiment_summary.csv
 ```
 
 ### `openai_classifier.py`
@@ -391,6 +409,48 @@ Running the full 20-company experiment results in approximately 60 model request
 
 ---
 
+## n8n Automation
+
+In addition to the batch pipeline (`database.py` / `lead_qualification.py`), the project includes an n8n workflow (`n8n/event_lead_qualification_workflow.json`) that qualifies a single lead in real time whenever it is submitted through a webhook.
+
+![n8n workflow](docs/n8n_workflow.png)
+
+```text
+Webhook (POST /event-lead)
+    ↓
+Edit Fields (map request body to fields)
+    ↓
+Validate Input (required fields + numeric ranges 1–10)
+    ↓
+Input Valid? ──No──→ Log Input Error (data table)
+    │Yes
+    ↓
+OpenAI Classification (V3 decision-rules prompt)
+    ↓
+Parse Classification (parse + sanity-check JSON)
+    ↓
+Validate AI Output (event / relevance_score / reason)
+    ↓
+AI Output Valid? ──No──→ Log AI Error → Reject AI Output
+    │Yes
+    ↓
+Calculate Lead Score (weighted formula → priority + recommended_action)
+    ↓
+IF Priority == High ──Yes──→ Discord Alert
+    │No
+    ↓
+No Operation (do nothing)
+```
+
+Key design points:
+
+- **Double validation.** Input data is validated before the OpenAI call, and the model output is validated again before scoring. Invalid inputs and invalid model outputs are written to the (`error_logs`) data table instead of entering the scoring pipeline.
+- **Same scoring logic as Python.** The `Calculate Lead Score` node reimplements the identical weighted formula used in `lead_qualification.py` and `database.py`, so batch and real-time results stay consistent.
+- **Alerting on high-priority leads.** When `priority` is `High`, a Discord message is sent with the company name, event, lead score, relevance score, and reason; otherwise the run ends with a no-op.
+- **Use case.** This workflow complements the batch pipeline: the batch scripts are for analyzing an existing company list, while the webhook is for qualifying new leads as they come in (e.g. from a signup form or CRM trigger).
+
+---
+
 ## Data Limitations
 
 The company descriptions and event labels are used for prototype evaluation.
@@ -439,6 +499,8 @@ Potential next steps include:
 - Pydantic
 - SQLite
 - SQL
+- n8n (workflow automation)
+- Discord API (alerting)
 - Git / GitHub
 
 ---
@@ -454,18 +516,3 @@ This project demonstrates how AI can support event lead qualification by combini
 - business prioritization
 
 It is a useful prototype for understanding how LLMs can be applied in a sales and partnership workflow for event planning and acquisition.
-
----
-
-## n8n Automation
-
-The project includes an n8n workflow for automated lead processing.
-
-```text
-Webhook
-→ Normalize Input
-→ OpenAI Classification
-→ Parse Classification
-→ Calculate Lead Score
-→ IF Priority == High
-→ Discord Alert

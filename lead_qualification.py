@@ -225,7 +225,7 @@ errors.to_csv(
 )
 
 case_summary.to_csv(
-    "case_type_summary.csv"
+    "lead_qualification_case_summary.csv"
 )
 
 

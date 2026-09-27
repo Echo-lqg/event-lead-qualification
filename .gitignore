@@ -11,7 +11,8 @@ __pycache__/
 # Generated outputs
 classification_errors.csv
 classified_companies.csv
-case_type_summary.csv
+lead_qualification_case_summary.csv
+prompt_evaluation_case_summary.csv
 event_summary.csv
 experiment_summary.csv
 fixed_by_v2.csv

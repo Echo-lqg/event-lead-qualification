@@ -324,7 +324,7 @@ fixed_by_v2.to_csv(
 )
 
 evaluation.to_csv("prompt_evaluation.csv", index=False)
-case_summary.to_csv("case_type_summary.csv")
+case_summary.to_csv("prompt_evaluation_case_summary.csv")
 
 summary_df = pd.DataFrame([summary])
 summary_df.to_csv(
