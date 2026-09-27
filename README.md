@@ -2,6 +2,44 @@
 
 An end-to-end prototype for classifying companies into technology events, scoring their business relevance, and prioritizing leads for outreach.
 
+## Table of Contents
+
+- [Project Overview](#project-overview)
+- [Pipeline Architecture](#pipeline-architecture)
+- [Project Structure](#project-structure)
+  - [`openai_classifier.py`](#openai_classifierpy)
+  - [`prompt_evaluation.py`](#prompt_evaluationpy)
+  - [`database.py`](#databasepy)
+  - [`lead_qualification.py`](#lead_qualificationpy)
+- [Prompt Engineering](#prompt-engineering)
+  - [V1 — Basic Classification Prompt](#v1--basic-classification-prompt)
+  - [V2 — Primary-Business Rules](#v2--primary-business-rules)
+  - [V3 — Explicit Decision Rules](#v3--explicit-decision-rules)
+- [Prompt Evaluation Results](#prompt-evaluation-results)
+- [Structured Output](#structured-output)
+- [Database Design](#database-design)
+  - [`companies`](#companies)
+  - [`classifications`](#classifications)
+  - [`lead_scores`](#lead_scores)
+- [Lead Scoring Model](#lead-scoring-model)
+- [Example Output](#example-output)
+  - [Priority Rules](#priority-rules)
+  - [Recommended Actions](#recommended-actions)
+- [Example Business Queries](#example-business-queries)
+- [Running the Project](#running-the-project)
+  - [Install Dependencies](#install-dependencies)
+  - [Set the OpenAI API Key](#set-the-openai-api-key)
+  - [Run the Database Pipeline](#run-the-database-pipeline)
+  - [Run pandas Analysis](#run-pandas-analysis)
+  - [Run Prompt Experiments](#run-prompt-experiments)
+- [n8n Automation](#n8n-automation)
+- [Data Limitations](#data-limitations)
+- [Future Improvements](#future-improvements)
+- [Tech Stack](#tech-stack)
+- [Project Summary](#project-summary)
+
+---
+
 The project combines:
 
 - OpenAI API
