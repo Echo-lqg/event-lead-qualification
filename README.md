@@ -20,7 +20,6 @@ An end-to-end prototype for classifying companies into technology events, scorin
 - [Data Limitations](#data-limitations)
 - [Future Improvements](#future-improvements)
 - [Tech Stack](#tech-stack)
-- [Project Summary](#project-summary)
 
 ---
 
@@ -116,63 +115,7 @@ fixed_by_v2.csv
 experiment_summary.csv
 ```
 
-### `openai_classifier.py`
-
-Contains the production-style OpenAI classifier.
-
-It:
-
-- builds the final classification prompt
-- calls the OpenAI API
-- validates model output using Pydantic Structured Outputs
-
-Returns:
-
-- `event`
-- `relevance_score`
-- `reason`
-
----
-
-### `prompt_evaluation.py`
-
-Runs prompt experiments across three prompt versions.
-
-The goal is to evaluate whether more explicit decision rules improve classification performance on ambiguous companies.
-
----
-
-### `database.py`
-
-Implements the main SQLite pipeline.
-
-It:
-
-- creates database tables
-- imports company data
-- optionally calls the OpenAI classifier
-- stores classification results
-- evaluates predictions against expected labels
-- calculates lead scores
-- assigns priority levels
-- generates SQL-based business analytics
-
----
-
-### `lead_qualification.py`
-
-Loads the final SQLite results into pandas for further analysis and export.
-
-It produces:
-
-- classification evaluation
-- classification errors
-- agreement by case type
-- top 10 leads
-- top 3 leads per event
-- high-priority leads
-- event summaries
-- priority summaries
+The modules separate the main concerns: `openai_classifier.py` handles classification with validated structured output, `prompt_evaluation.py` compares the three prompt versions, `database.py` runs the SQLite storage and scoring pipeline, and `lead_qualification.py` performs the pandas analysis and exports.
 
 ---
 
@@ -225,6 +168,8 @@ If the event is Other, relevance_score must be 3 or lower.
 
 The change altered scoring but not classification. All 20 companies kept the same predicted event, and every `Other` company is now in the Low priority band. Multi-domain companies such as NVIDIA and Tesla dropped from 9–10 to 7, because the event topic is only part of their business.
 
+The `Other` rule is enforced in code, not only in the prompt. The Pydantic model rejects an `Other` classification with a score above 3, and the n8n `Validate AI Output` node applies the same check. The n8n classification prompt carries the same relevance definition, so batch and real-time scoring use the same semantics.
+
 ---
 
 ## Prompt Evaluation Results
@@ -264,9 +209,17 @@ class ClassificationResult(BaseModel):
     )
 
     reason: str
+
+    @model_validator(mode="after")
+    def other_requires_low_relevance(self):
+        if self.event == "Other" and self.relevance_score > 3:
+            raise ValueError(
+                "relevance_score must be 3 or lower when event is Other"
+            )
+        return self
 ```
 
-This ensures that downstream database and analytics steps receive predictable and validated data.
+This ensures that downstream database and analytics steps receive predictable and validated data. A response that fails validation counts as a failed classification (see [Run the Database Pipeline](#run-the-database-pipeline)).
 
 ---
 
@@ -309,6 +262,8 @@ Stores business qualification results.
 - recommended_action
 
 The tables are connected through `company_id`.
+
+Rerunning `database.py` updates existing companies from `companies.csv` (matched by `name`) and resynchronizes the stored `correct` flag with the current `expected_event`. Companies removed from the CSV are not deleted from the database; delete `event_leads.db` and rerun with `RUN_CLASSIFICATION = True` to rebuild it.
 
 ---
 
@@ -406,6 +361,8 @@ pip install -r requirements.txt
 
 Store the API key in an environment variable. Never hardcode it or commit it to GitHub.
 
+The key is only needed when classification runs (`RUN_CLASSIFICATION = True`) and for `prompt_evaluation.py`. Reusing stored results does not require it.
+
 **Windows PowerShell**
 
 ```powershell
@@ -424,6 +381,10 @@ The `RUN_CLASSIFICATION` flag in `database.py` controls whether the OpenAI class
 
 - `False` — reuses the classification results already stored in SQLite
 - `True` — reruns the OpenAI classifier and refreshes the stored results
+
+`event_leads.db` is gitignored, so **the first run must use `RUN_CLASSIFICATION = True`**. With `False` and no stored classifications, the script stops with an error that lists the unclassified companies instead of producing empty results.
+
+The pipeline refuses to continue with incomplete classifications or invalid scoring inputs. Stored classifications are replaced only if every company is classified successfully (an `Other` result with a score above 3 counts as a failure), a company added to `companies.csv` must be classified before scoring runs, and an unknown `case_type` stops scoring. In each case the script exits with an error and leaves the previous results unchanged.
 
 ---
 
@@ -471,11 +432,11 @@ Validate Input (required fields + numeric ranges 1–10)
 Input Valid? ──No──→ Log Input Error (data table)
     │Yes
     ↓
-OpenAI Classification (V3 decision-rules prompt)
+OpenAI Classification (V3 decision rules + relevance score definition)
     ↓
-Parse Classification (parse + sanity-check JSON)
+Parse Classification (parse JSON, record parse errors)
     ↓
-Validate AI Output (event / relevance_score / reason)
+Validate AI Output (parse errors / event / relevance_score / reason / Other ≤ 3)
     ↓
 AI Output Valid? ──No──→ Log AI Error → Reject AI Output
     │Yes
@@ -490,35 +451,38 @@ No Operation (do nothing)
 
 Key design points:
 
-- **Double validation.** Input data is validated before the OpenAI call, and the model output is validated again before scoring. Invalid inputs and invalid model outputs are written to the `error_logs` data table instead of entering the scoring pipeline.
-- **Same scoring logic as Python.** The `Calculate Lead Score` node reimplements the identical weighted formula used in `database.py`, so batch and real-time results stay consistent.
+- **Double validation.** Input data is validated before the OpenAI call, and the model output is validated again before scoring. Invalid inputs and invalid model outputs (unparseable or missing responses, out-of-range scores, or an `Other` result scored above 3) are written to the `error_logs` data table instead of entering the scoring pipeline.
+- **Same scoring logic as Python.** The `Calculate Lead Score` node reimplements the identical weighted formula used in `database.py`, and the classification prompt carries the same relevance-score definition, so batch and real-time results stay consistent.
 - **Alerting on high-priority leads.** When `priority` is `High`, a Discord message is sent with the company name, event, lead score, relevance score, and reason; otherwise the run ends with a no-op.
 - **Use case.** The workflow complements the batch pipeline: the batch scripts analyze an existing company list, while the webhook qualifies new leads as they arrive (e.g., from a signup form or CRM trigger).
+- **Limitations.** The webhook is unauthenticated and responds immediately, so callers do not see rejections. A failure of the OpenAI call itself (for example a rate limit) stops the execution and is not written to `error_logs`.
+
+### Importing the workflow
+
+The committed export is sanitized and uses placeholders for credentials and infrastructure IDs. After importing, select your own OpenAI and Discord credentials, the Discord server and channel, and an `error_logs` data table (columns `error_type`, `company_name`, `error_message`, `raw_data`).
 
 ---
 
 ## Power BI Dashboard
 
-`powerbi/event_lead_qualification_dashboard.pbix` is a two-page report that turns the pipeline outputs into an actionable view for a business development team.
+`powerbi/event_lead_qualification_dashboard.pbix` is a two-page report built from the pipeline outputs for business-development analysis.
 
 ### Data Model
 
-The report imports only the two detail-level exports:
+The report uses two detail-level tables:
 
 | Table | Source | Grain |
 |---|---|---|
 | `lead_qualification_results` | `lead_qualification_results.csv` | one row per company |
 | `prompt_evaluation_long` | `prompt_evaluation.csv`, unpivoted in Power Query | one row per company per prompt version |
 
-The pre-aggregated exports (`top_10_leads.csv`, `event_summary.csv`, `priority_summary.csv`, `top_leads_by_event.csv`) are deliberately **not** imported. Every count, average, and ranking is a DAX measure over the detail tables, so slicers recalculate results instead of reading frozen ones. Importing both the detail and the summary of the same data would duplicate the aggregation logic in two places.
-
-`prompt_evaluation.csv` is written in wide format (one column per prompt version). Power Query unpivots it into `prompt_version` / `prediction` / `is_correct` so the versions can be compared on a single axis.
+Pre-aggregated exports such as `top_10_leads.csv`, `event_summary.csv`, `priority_summary.csv`, and `top_leads_by_event.csv` are not imported. Counts, averages, and rankings are calculated in DAX so visuals remain responsive to filters.
 
 ### Page 1 — Lead Overview
 
 ![Power BI lead overview](docs/powerbi_dashboard.png)
 
-Four KPI cards are driven by measures over the company table:
+The page includes four KPI measures:
 
 ```dax
 Total Leads =
@@ -543,37 +507,34 @@ DIVIDE(
 )
 ```
 
-The rest of the page has five visuals:
+Additional visuals cover:
 
-- **Lead Priority Distribution** — how the scoring model splits the 20 companies into High, Medium, and Low
-- **Leads by Event** — where the classifier assigned each company, including `Other`
-- **Average Lead Score by Event** — which event attracts the most commercially relevant companies, which a count alone cannot show
-- **Top Qualified Leads** — the outreach shortlist, built with a Top N filter on `company` ranked by `lead_score` (not imported from `top_10_leads.csv`)
-- **Sponsorship Potential vs Lead Score** — one bubble per company, colored by event and sized by `company_size`
+- lead priority distribution
+- leads by event
+- average lead score by event
+- top qualified leads
+- sponsorship potential vs. lead score
 
-`Event` and `Priority` slicers filter the whole page, so one report answers both "how is the pipeline performing overall" and "who should sales contact this week".
-
-The scatter plot also makes the relevance-score fix visible: `Other` companies form a separate low cluster instead of mixing into the mid-range.
+The scatter plot also shows the effect of the revised `relevance_score`: `Other` companies form a distinct lower-score cluster.
 
 ### Page 2 — Prompt Evaluation
 
 ![Power BI prompt evaluation](docs/powerbi_prompt_evaluation.png)
 
-The second page covers prompt reliability rather than business value:
+This page compares the three prompt versions through:
 
-- **V1 / V2 / V3 Agreement %** cards — 90%, 95%, 100% on the evaluation set
-- **Prompt Version Agreement** — the same three numbers as a column chart
-- **Errors by Prompt Version** — error counts, which expose the V2 regression that the net agreement figures hide
-- **Errors by Case Type and Prompt Version** — a matrix locating each error: V1 failed on `borderline_ai` and `keyword_trap`, V2 on `multi_domain`
-- **Misclassified Cases** — the three individual errors with expected event, prompt version, and prediction
+- V1 / V2 / V3 agreement
+- errors by prompt version
+- errors by case type
+- misclassified cases
 
-The cards use **Agreement** rather than **Accuracy** because the results are specific to the current 20-company evaluation set.
+The report uses **Agreement** rather than **Accuracy** because the results are specific to the current 20-company evaluation set.
 
 ### Refreshing the Report
 
-The `.pbix` embeds its data, so it opens without running the pipeline.
+The `.pbix` includes embedded data and can be opened directly.
 
-To refresh it, first regenerate the gitignored CSVs:
+To refresh it, regenerate the gitignored outputs first:
 
 ```bash
 python database.py
@@ -581,7 +542,9 @@ python lead_qualification.py
 python prompt_evaluation.py
 ```
 
-Then use **Home → Refresh**. The data source paths are local, so a clone must repoint them to its own working directory.
+The first `database.py` run requires `RUN_CLASSIFICATION = True`.
+
+Then use **Home → Refresh** in Power BI. Local data-source paths may need to be repointed after cloning the repository.
 
 ---
 
@@ -595,6 +558,9 @@ The following business features are simulated:
 - industry_fit
 - past_event_engagement
 - sponsorship_potential
+- case_confidence
+
+`case_confidence` is derived from each company's hand-labeled `case_type` (a difficulty label from the evaluation set) through a fixed mapping. Real leads have no such label, so the n8n workflow expects the caller to supply the value.
 
 In production, these fields would come from systems such as:
 
@@ -612,14 +578,10 @@ The lead-scoring weights are heuristic and are intended to demonstrate the busin
 Potential next steps:
 
 - connecting CRM or enrichment APIs
-- adding automated data ingestion with n8n
-- storing classification timestamps and model metadata
 - adding retry and rate-limit handling for API calls
 - expanding the evaluation dataset
 - adding automated tests
-- scheduling the Power BI refresh against a hosted database instead of local CSV files
-- tracking prompt and model versions
-- integrating lead results into a CRM workflow
+- moving the Power BI refresh to a hosted data source instead of local CSV files
 
 ---
 
@@ -635,9 +597,3 @@ Potential next steps:
 - Discord API (alerting)
 - Power BI / DAX / Power Query
 - Git / GitHub
-
----
-
-## Project Summary
-
-This project shows how an LLM classifier can be embedded in a sales and partnership workflow: event classification with validated structured output, database storage, lead scoring and prioritization, real-time automation, and BI reporting.

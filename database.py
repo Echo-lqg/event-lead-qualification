@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS lead_scores (
 
 for _, row in df.iterrows():
     cursor.execute("""
-    INSERT OR IGNORE INTO companies ( 
+    INSERT INTO companies (
     name,
     description,
     expected_event,
@@ -82,6 +82,14 @@ for _, row in df.iterrows():
     sponsorship_potential
     )
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(name) DO UPDATE SET
+        description = excluded.description,
+        expected_event = excluded.expected_event,
+        case_type = excluded.case_type,
+        company_size = excluded.company_size,
+        industry_fit = excluded.industry_fit,
+        past_event_engagement = excluded.past_event_engagement,
+        sponsorship_potential = excluded.sponsorship_potential
     """, (
         row["name"],
         row["description"],
@@ -93,6 +101,18 @@ for _, row in df.iterrows():
         row["sponsorship_potential"]
     ))
 
+# Keep the stored comparison in sync if expected_event changed in companies.csv
+cursor.execute("""
+UPDATE classifications
+SET correct = (
+    predicted_event = (
+        SELECT expected_event
+        FROM companies
+        WHERE companies.id = classifications.company_id
+    )
+)
+""")
+
 conn.commit()
 
 # =========================================================
@@ -100,11 +120,6 @@ conn.commit()
 # =========================================================
 
 if RUN_CLASSIFICATION:
-
-    #Clear previous classification results
-    cursor.execute("""
-    DELETE FROM classifications
-    """)
 
     cursor.execute("""
     SELECT
@@ -116,6 +131,9 @@ if RUN_CLASSIFICATION:
     """)
 
     companies = cursor.fetchall()
+
+    new_classifications = []
+    failed_companies = []
 
     for company_id, name, description, expected_event in companies:
 
@@ -133,16 +151,7 @@ if RUN_CLASSIFICATION:
                 predicted_event == expected_event
             )
 
-            cursor.execute("""
-            INSERT INTO classifications (
-                company_id,
-                predicted_event,
-                relevance_score,
-                reason,
-                correct
-            )
-            VALUES (?, ?, ?, ?, ?)
-            """, (
+            new_classifications.append((
                 company_id,
                 predicted_event,
                 relevance_score,
@@ -156,12 +165,59 @@ if RUN_CLASSIFICATION:
                 f"({relevance_score}/10)"
             )
         except Exception as error:
-                print(
-                    f"✗ Failed to classify {name}: {error}"
-                )
+            failed_companies.append(name)
+            print(
+                f"✗ Failed to classify {name}: {error}"
+            )
 
-    #Save database changes
+    # Stored results are replaced only when every company was classified
+    if failed_companies:
+        conn.close()
+        raise SystemExit(
+            f"\nClassification failed for {len(failed_companies)} of "
+            f"{len(companies)} companies: {', '.join(failed_companies)}. "
+            "Stored classifications were left unchanged."
+        )
+
+    cursor.execute("""
+    DELETE FROM classifications
+    """)
+
+    cursor.executemany("""
+    INSERT INTO classifications (
+        company_id,
+        predicted_event,
+        relevance_score,
+        reason,
+        correct
+    )
+    VALUES (?, ?, ?, ?, ?)
+    """, new_classifications)
+
     conn.commit()
+
+# =========================================================
+# 6b. Verify every company has a stored classification
+# =========================================================
+
+cursor.execute("""
+SELECT c.name
+FROM companies AS c
+LEFT JOIN classifications AS cl
+    ON c.id = cl.company_id
+WHERE cl.id IS NULL
+""")
+
+unclassified_companies = [row[0] for row in cursor.fetchall()]
+
+if unclassified_companies:
+    conn.close()
+    raise SystemExit(
+        f"\n{len(unclassified_companies)} companies have no stored "
+        f"classification: {', '.join(unclassified_companies)}.\n"
+        "Set RUN_CLASSIFICATION = True and rerun to classify all companies "
+        "(requires OPENAI_API_KEY). This is required on the first run."
+    )
 
 # =========================================================
 # 7. Evaluate classification results
@@ -243,10 +299,6 @@ case_confidence_map = {
 }
 
 cursor.execute("""
-DELETE FROM lead_scores
-""")
-
-cursor.execute("""
 SELECT
     c.id,
     c.name,
@@ -262,6 +314,24 @@ JOIN classifications AS cl
 """)
 
 lead_data = cursor.fetchall()
+
+unknown_case_types = sorted({
+    row[2] for row in lead_data
+    if row[2] not in case_confidence_map
+})
+
+if unknown_case_types:
+    conn.close()
+    raise SystemExit(
+        f"\nUnknown case_type in companies.csv: "
+        f"{', '.join(map(str, unknown_case_types))}. "
+        "Add it to case_confidence_map before scoring. "
+        "Stored lead scores were left unchanged."
+    )
+
+cursor.execute("""
+DELETE FROM lead_scores
+""")
 
 for (
     company_id,
@@ -316,7 +386,7 @@ for (
             recommended_action
     ))
 
-    conn.commit()
+conn.commit()
 
 cursor.execute("""
 SELECT *

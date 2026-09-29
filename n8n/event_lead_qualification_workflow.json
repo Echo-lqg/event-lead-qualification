@@ -49,7 +49,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const relevance_score = $json.relevance_score;\nconst industry_fit = $json.industry_fit;\nconst sponsorship_potential = $json.sponsorship_potential;\nconst company_size = $json.company_size;\nconst past_event_engagement = $json.past_event_engagement;\nconst case_confidence = $json.case_confidence;\n\nconst lead_score = (\n  relevance_score * 0.30 +\n  industry_fit * 0.25 +\n  sponsorship_potential * 0.20 +\n  company_size * 0.10 +\n  past_event_engagement * 0.10 +\n  case_confidence * 0.05\n) * 10;\n\nlet priority;\nlet recommended_action;\n\nif (lead_score >= 85) {\n  priority = \"High\";\n  recommended_action = \"Contact sales / partnership team\";\n} else if (lead_score >= 65) {\n  priority = \"Medium\";\n  recommended_action = \"Add to nurture campaign\";\n} else {\n  priority = \"Low\";\n  recommended_action = \"Low priority / monitor\";\n}\n\nreturn [{\n  json: {\n    ...$json,\n    lead_score: Math.round(lead_score * 10) / 10,\n    priority: priority,\n    recommended_action: recommended_action\n  }\n}];\n"
+        "jsCode": "const relevance_score = $json.relevance_score;\nconst industry_fit = $json.industry_fit;\nconst sponsorship_potential = $json.sponsorship_potential;\nconst company_size = $json.company_size;\nconst past_event_engagement = $json.past_event_engagement;\nconst case_confidence = $json.case_confidence;\n\nconst lead_score = (\n    Number(relevance_score) * 0.30\n    + Number(industry_fit) * 0.25\n    + Number(sponsorship_potential) * 0.20\n    + Number(company_size) * 0.10\n    + Number(past_event_engagement) * 0.10\n    + Number(case_confidence) * 0.05\n) * 10;\n\nconst rounded_lead_score =\n    Math.round(lead_score * 10) / 10;\n\nlet priority;\nlet recommended_action;\n\nif (rounded_lead_score >= 85) {\n  priority = \"High\";\n  recommended_action = \"Contact sales / partnership team\";\n} else if (rounded_lead_score >= 65) {\n  priority = \"Medium\";\n  recommended_action = \"Add to nurture campaign\";\n} else {\n  priority = \"Low\";\n  recommended_action = \"Low priority / monitor\";\n}\n\nreturn [{\n  json: {\n    ...$json,\n    lead_score: rounded_lead_score,\n    priority: priority,\n    recommended_action: recommended_action\n  }\n}];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -651,7 +651,7 @@
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
-  "versionId": "494c3210-3d25-4edf-bcd9-fcfb9b11a4d7",
+  "versionId": "db0aa2dd-3e72-4c16-814b-4cd5eb506bde",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "b23558530e24b8f389846aecea08c2804d7f30d09129507ba7b3e1863c783d73"

@@ -1,9 +1,15 @@
 from typing import Literal
 
 from openai import OpenAI
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
-client = OpenAI()
+_client = None
+
+def get_client():
+    global _client
+    if _client is None:
+        _client = OpenAI()
+    return _client
 
 class ClassificationResult(BaseModel):
     event: Literal[ #表示 event 只能是这四个值之一。
@@ -19,6 +25,14 @@ class ClassificationResult(BaseModel):
     )
 
     reason: str
+
+    @model_validator(mode="after")
+    def other_requires_low_relevance(self):
+        if self.event == "Other" and self.relevance_score > 3:
+            raise ValueError(
+                "relevance_score must be 3 or lower when event is Other"
+            )
+        return self
 
 classification_rules = """
 RAISE:
@@ -101,7 +115,7 @@ def classify_company(company, description):
         description
     )
 
-    response = client.responses.parse(
+    response = get_client().responses.parse(
         model="gpt-6-astra",
         input=prompt,
         text_format=ClassificationResult
