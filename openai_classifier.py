@@ -68,6 +68,20 @@ Decision rules:
 8. If none of the categories clearly fits the company's primary business,
    choose Other.
 
+Relevance score:
+
+relevance_score measures how relevant the company is to the event you
+assigned. It does NOT measure how confident you are in the classification.
+
+- 8-10: the event topic is the company's primary business.
+- 5-7: the company fits the event, but the relevant technology is only one
+  part of a broader business.
+- 2-4: the company has only a marginal connection to the event topics.
+- 1: the company has no meaningful connection to any event topic.
+
+If you choose Other, relevance_score must be 3 or lower, because Other means
+the company does not fit any of the three events.
+
 Use only the provided description.
 
 Company:

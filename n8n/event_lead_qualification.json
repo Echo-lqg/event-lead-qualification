@@ -36,7 +36,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const rawText = $json.output[0].content[0].text;\n\nlet classification;\n\ntry {\n  classification = JSON.parse(rawText);\n} catch (error) {\n  throw new Error(\"OpenAI returned invalid JSON\");\n}\n\n\nconst allowedEvents = [\n  \"RAISE\",\n  \"Signal Week\",\n  \"MACHINA\",\n  \"Other\"\n];\n\n\nif (!allowedEvents.includes(classification.event)) {\n  throw new Error(\n    `Invalid event returned by model: ${classification.event}`\n  );\n}\n\n\nconst relevanceScore = Number(\n  classification.relevance_score\n);\n\nif (\n  !Number.isFinite(relevanceScore) ||\n  relevanceScore < 1 ||\n  relevanceScore > 10\n) {\n  throw new Error(\n    \"relevance_score must be between 1 and 10\"\n  );\n}\n\n\nif (\n  !classification.reason ||\n  !classification.reason.trim()\n) {\n  throw new Error(\n    \"Model response is missing reason\"\n  );\n}\n\n\nconst input = $('Edit Fields').first().json;\n\n\nreturn [{\n  json: {\n    ...input,\n\n    event: classification.event,\n    relevance_score: relevanceScore,\n    reason: classification.reason.trim()\n  }\n}];"
+        "jsCode": "const rawText = $json.output[0].content[0].text;\n\nconst input = $('Edit Fields').first().json;\n\nlet classification = null;\nlet parseError = null;\n\ntry {\n  classification = JSON.parse(rawText);\n} catch (error) {\n  parseError = \"OpenAI returned invalid JSON\";\n}\n\nreturn [{\n  json: {\n    ...input,\n\n    raw_ai_output: rawText,\n\n    parse_error: parseError,\n\n    event: classification?.event ?? null,\n    relevance_score: classification?.relevance_score ?? null,\n    reason: classification?.reason ?? null\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -651,7 +651,7 @@
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
-  "versionId": "04933094-d22f-4cd4-b084-2be641bd3ad6",
+  "versionId": "494c3210-3d25-4edf-bcd9-fcfb9b11a4d7",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "b23558530e24b8f389846aecea08c2804d7f30d09129507ba7b3e1863c783d73"
