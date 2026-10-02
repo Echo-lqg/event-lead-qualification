@@ -1,3 +1,5 @@
+English | [Français](README.fr.md)
+
 # AI-Assisted Event Lead Qualification Pipeline
 
 An end-to-end prototype for classifying companies into technology events, scoring their business relevance, and prioritizing leads for outreach.
@@ -96,7 +98,8 @@ event-lead-qualification/
 ├── lead_qualification.py
 ├── requirements.txt
 ├── .gitignore
-└── README.md
+├── README.md
+└── README.fr.md
 
 Generated after running the scripts (gitignored, not committed):
 
