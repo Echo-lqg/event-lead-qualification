@@ -50,3 +50,25 @@ def verify_profile_evidence(
         )
 
     return results
+
+def calculate_grounded_ratio(
+    verification_results: list[dict]
+) -> float:
+    if not verification_results:
+        return 0.0
+
+    verified_count = sum(
+        1
+        for result in verification_results
+        if result["verified"]
+    )
+
+    return verified_count / len(verification_results)
+
+def calculate_enrichment_confidence(
+    grounded_ratio: float
+) -> float:
+    return round(
+        1 + 9 * grounded_ratio,
+        1
+    )

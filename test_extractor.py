@@ -30,3 +30,28 @@ for result in verification_results:
         "->",
         result["verified"]
     )
+
+from enrichment.verifier import (
+    verify_profile_evidence,
+    calculate_grounded_ratio,
+    calculate_enrichment_confidence
+)
+
+verification_results = verify_profile_evidence(
+    profile,
+    sources
+)
+
+grounded_ratio = calculate_grounded_ratio(
+    verification_results
+)
+
+enrichment_confidence = calculate_enrichment_confidence(
+    grounded_ratio
+)
+
+print("\nGrounded ratio:")
+print(grounded_ratio)
+
+print("\nEnrichment confidence:")
+print(enrichment_confidence)
