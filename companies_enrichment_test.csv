@@ -1,6 +1,6 @@
 name,website,expected_event
 NVIDIA,https://www.nvidia.com,RAISE
-Binance,https://www.binance.com Signal Week
+Binance,https://www.binance.com,Signal Week
 ABB Robotics,https://www.abb.com/global/en/areas/robotics,MACHINA
 PayPal,https://www.paypal.com,Other
 L'Oreal,https://www.loreal.com,Other
