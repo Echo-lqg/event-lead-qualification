@@ -59,3 +59,35 @@ def build_source_document(
         content_hash=content_hash,
         text=text
     )
+
+
+def build_company_sources(
+    website: str
+) -> list[SourceDocument]:
+
+    candidate_urls = [
+        website,
+        website.rstrip("/") + "/about",
+        website.rstrip("/") + "/about-us"
+    ]
+
+    sources = []
+
+    for index, url in enumerate(
+        candidate_urls,
+        start=1
+    ):
+        try:
+            document = build_source_document(
+                url=url,
+                source_id=f"S{index}"
+            )
+
+            sources.append(document)
+
+        except Exception as error:
+            print(
+                f"Could not fetch {url}: {error}"
+            )
+
+    return sources

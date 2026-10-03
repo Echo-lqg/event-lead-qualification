@@ -1,23 +1,11 @@
-from enrichment.fetcher import build_source_document
+from enrichment.fetcher import build_company_sources
 
-url = "https://www.nvidia.com"
-
-document = build_source_document(
-    url=url,
-    source_id="S1"
+sources = build_company_sources(
+    "https://www.nvidia.com/this-page-does-not-exist"
 )
 
-print("Source ID:")
-print(document.source_id)
-
-print("\nURL:")
-print(document.url)
-
-print("\nFetched at:")
-print(document.fetched_at)
-
-print("\nContent hash:")
-print(document.content_hash)
-
-print("\nText preview:")
-print(document.text[:1000])
+for source in sources:
+    print("=" * 60)
+    print(source.source_id)
+    print(source.url)
+    print(source.text[:500])
