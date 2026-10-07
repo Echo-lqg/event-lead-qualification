@@ -51,19 +51,31 @@ def verify_profile_evidence(
 
     return results
 
+KEY_FIELDS = {
+    "primary_business",
+    "product_type",
+    "customer_type",
+    "technology_tags",
+    "employee_range",
+    "public_or_funding",
+    "event_presence"
+}
+
 def calculate_grounded_ratio(
     verification_results: list[dict]
 ) -> float:
-    if not verification_results:
-        return 0.0
 
-    verified_count = sum(
-        1
+    verified_fields = {
+        result["field"]
         for result in verification_results
         if result["verified"]
+    }
+
+    grounded_fields = (
+        verified_fields & KEY_FIELDS
     )
 
-    return verified_count / len(verification_results)
+    return len(grounded_fields) / len(KEY_FIELDS)
 
 def calculate_enrichment_confidence(
     grounded_ratio: float

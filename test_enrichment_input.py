@@ -15,7 +15,7 @@ for column in required_columns:
         )
 
 for _, row in df.iterrows():
-    name = row["name"],
+    name = row["name"]
     website = row["website"]
 
     if pd.isna(name):
